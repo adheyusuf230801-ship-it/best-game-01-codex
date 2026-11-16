@@ -1,0 +1,26 @@
+/** Serve the static game locally: node serve.ts, then open http://localhost:8080. */
+import { createServer } from 'node:http';
+import { readFile, realpath, stat } from 'node:fs/promises';
+import { dirname, extname, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = await realpath(resolve(dirname(fileURLToPath(import.meta.url)), 'game'));
+/** @type {Record<string, string>} */
+const types = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
+};
+createServer(async (req, res) => {
+  try {
+    const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+    const file = await realpath(resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname)));
+    if (!file.startsWith(root + sep) || !(await stat(file)).isFile()) throw new Error('Not a game file');
+    const body = await readFile(file);
+    res.writeHead(200, { 'Content-Type': types[extname(file).toLowerCase()] ?? 'application/octet-stream' });
+    res.end(body);
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not found\n');
+  }
+}).listen(8080, 'localhost', () => console.log('Bloomkeeper: http://localhost:8080'));
